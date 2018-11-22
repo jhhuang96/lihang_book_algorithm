@@ -7,11 +7,11 @@ import numpy as np
 import pandas as pd
 
 
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
 
-total_class = 10
+total_class = 10 #全局变量，由于数据集是手写体0-9，所以有10类
 
 def log(func):
     def wrapper(*args, **kwargs):
@@ -29,7 +29,7 @@ def log(func):
 # 二值化
 def binaryzation(img):
     cv_img = img.astype(np.uint8)
-    cv2.threshold(cv_img,50,1,cv2.cv.CV_THRESH_BINARY_INV,cv_img)
+    ret,cv_img = cv2.threshold(cv_img,50,1,cv2.THRESH_BINARY_INV)#图像中的灰度值大于50的重置像素值为0，否则为maxvalue=1
     return cv_img
 
 @log
@@ -64,7 +64,7 @@ class Tree(object):
         if self.node_type == 'leaf':
             return self.Class
 
-        tree = self.dict[features[self.feature]]
+        tree = self.dict[features[self.feature]] 
         return tree.predict(features)
 
 def calc_ent(x):
@@ -72,7 +72,7 @@ def calc_ent(x):
         calculate shanno ent of x
     """
 
-    x_value_list = set([x[i] for i in range(x.shape[0])])
+    x_value_list = set([x[i] for i in range(x.shape[0])])   #集合（set）是一个无序的不重复元素序列集合。
     ent = 0.0
     for x_value in x_value_list:
         p = float(x[x == x_value].shape[0]) / x.shape[0]
@@ -116,10 +116,14 @@ def recurse_train(train_set,train_label,features,epsilon):
     # 步骤1——如果train_set中的所有实例都属于同一类Ck
     label_set = set(train_label)
     if len(label_set) == 1:
-        return Tree(LEAF,Class = label_set.pop())
+        return Tree(LEAF,Class = label_set.pop()) #返回一个对象，s.pop()随机删除集合中的一个元素,返回值为移除的元素。
 
-    # 步骤2——如果features为空
-    (max_class,max_len) = max([(i,len(filter(lambda x:x==i,train_label))) for i in xrange(total_class)],key = lambda x:x[1])
+    # 步骤2——如果特征集为空
+    (max_class,max_len) = max(   [(i,len(list(filter(lambda x:x==i,train_label)))) for i in range(total_class)]   ,key = lambda x:x[1])#max(*args, key=None)返回给定参数的最大值。max以key的函数对象为判断的标准。以key的函数对象为判断的标准。 
+    '''
+    filter() 函数用于过滤序列，过滤掉不符合条件的元素，返回一个迭代器对象，如果要转换为列表，可以使用 list() 来转换。
+    filter(function, iterable)接收两个参数，第一个为函数，第二个为序列，序列的每个元素作为参数传递给函数进行判，然后返回 True 或 False，最后将返回 True 的元素放到新列表中。
+    '''
 
     if len(features) == 0:
         return Tree(LEAF,Class = max_class)
@@ -130,29 +134,28 @@ def recurse_train(train_set,train_label,features,epsilon):
 
     D = train_label
     HD = calc_ent(D)
-    for feature in features:
-        A = np.array(train_set[:,feature].flat)
-        gda = HD - calc_condition_ent(A,D)
+    for feature in range(len(features)):   #features.shape[1] =784
+        A = train_set[:,feature] #提取每一列特征的值
+        gda = HD - calc_condition_ent(A,D)   
 
         if gda > max_gda:
-            max_gda,max_feature = gda,feature
+            max_gda,max_feature = gda,feature    #max_feature记录的是特征编号（0~783）
 
     # 步骤4——小于阈值
     if max_gda < epsilon:
         return Tree(LEAF,Class = max_class)
 
     # 步骤5——构建非空子集
-    sub_features = filter(lambda x:x!=max_feature,features)
+    sub_features = list(filter(lambda x:x!=max_feature,features))
     tree = Tree(INTERNAL,feature=max_feature)
 
-    feature_col = np.array(train_set[:,max_feature].flat)
+    feature_col = train_set[:,max_feature]   #提取max_feature所在列的数据集
     feature_value_list = set([feature_col[i] for i in range(feature_col.shape[0])])
     for feature_value in feature_value_list:
-
         index = []
-        for i in xrange(len(train_label)):
+        for i in range(len(train_label)):
             if train_set[i][max_feature] == feature_value:
-                index.append(i)
+                index.append(i)  #记录此时(等于给定特征值)的索引标号
 
         sub_train_set = train_set[index]
         sub_train_label = train_label[index]
@@ -181,7 +184,7 @@ if __name__ == '__main__':
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
-    raw_data = pd.read_csv('../data/train.csv',header=0)
+    raw_data = pd.read_csv('D:/github/lihang_book_algorithm/data/train.csv',header=0)
     data = raw_data.values
 
     imgs = data[0::,1::]
@@ -197,7 +200,7 @@ if __name__ == '__main__':
     test_predict = predict(test_features,tree)
     score = accuracy_score(test_labels,test_predict)
 
-    print "The accruacy socre is ", score
+    print ("The accruacy socre is ", score)
 
 
 
